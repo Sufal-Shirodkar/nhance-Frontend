@@ -28,9 +28,11 @@ function App() {
   console.log(data)
   return (
     <div>
-      <Navbar>
-        <span onClick={()=>{navigate('/')} }>Home | </span>
-        <span onClick={()=>{navigate('/register')}}>SignUp/Login</span>
+      <Navbar >
+        <span style={{margin:"10px",padding:"10px"}}  onClick={()=>{navigate('/')} }>Home</span>
+        <span style={{margin:"10px",padding:"10px",display:"flex",justifyContent:"flex-end"}} onClick={()=>{navigate('/register')}}>SignUp/Login</span>
+
+        {/* <span style={{margin:"10px",padding:"10px", display:"flex",textAlign:"flex-end"}}  onClick={()=>{navigate('/register')}}>SignUp/Login</span> */}
       </Navbar>
       <UserContext.Provider value={{data,dispatch}}>
     <Routes>
