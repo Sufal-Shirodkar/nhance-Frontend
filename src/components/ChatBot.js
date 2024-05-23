@@ -23,7 +23,7 @@ export default function Chatbot(){
 
     const toggle = () => setModal(!modal);
 
-    
+   
     useEffect(()=>{
         (
             async()=>{
@@ -41,6 +41,7 @@ export default function Chatbot(){
                     },{})
                     setAllGroups(result1)
                     setUsers(response.data)
+                    console.log(response.data)
                     const result = response.data.reduce((acc,cv)=>{
                         acc[cv.name] = []
                         return acc
@@ -59,12 +60,21 @@ export default function Chatbot(){
         });
 
         socket.on('recieve_message',(data)=>{
+            //  setRecieve(prevState=>{
+            //     const newRecieve = {...prevState}
+            //     if(!newRecieve[data.message.username]){
+            //         newRecieve[data.message.username] =[data]
+            //     }else{
+            //         newRecieve[data.message.username].push(data)
+            //     }
+            //     return newRecieve
+            //  })
              setRecieve(prevState=>{
                 const newRecieve = {...prevState}
-                if(!newRecieve[data.message.username]){
-                    newRecieve[data.message.username] =[data]
+                if(!newRecieve[data.reciever]){
+                    newRecieve[data.reciever] =[{ reciever:data.username,message:data.message,isGroup:isGroup}]
                 }else{
-                    newRecieve[data.message.username].push(data)
+                    newRecieve[data.reciever].push({ reciever:data.username,message:data.message,isGroup:isGroup})
                 }
                 return newRecieve
              })
@@ -76,15 +86,15 @@ export default function Chatbot(){
         })
         socket.on('recieve_group_message',(data)=>{
           console.log(data)
-          setRecieve(prevState=>{
-                const newRecieve = {...prevState}
-                if(!newRecieve[data.message.selectedGroupName]){
-                    newRecieve[data.message.selectedGroupName] =[data]
-                }else{
-                    newRecieve[data.message.selectedGroupName].push(data)
-                }
-                return newRecieve
-             })
+          setAllGroups(prevState=>{
+            const newRecieve = {...prevState}
+            if( data.message.selectedGroupName in newRecieve){
+                newRecieve[data.message.selectedGroupName].chatHistory.push({...data})
+            }else{
+                newRecieve[data.message.selectedGroupName] = newRecieve.chatHistory.push({...data})
+            }
+            return newRecieve
+         })
         })
         
         // return ()=>{
@@ -105,7 +115,18 @@ export default function Chatbot(){
         const username = data.user.name
         setSender(data.user.name)
         const room = socketId
-        socket.emit('message1',{username,reciever,room,message,isGroup})
+        const members = [data.user._id,users.find(ele =>ele.name === reciever)._id]
+        socket.emit('message1',{username,reciever,room,message,isGroup,members})
+        setRecieve(prevState=>{
+            const newRecieve = {...prevState}
+            console.log(newRecieve)
+            if(username in newRecieve){
+                newRecieve[username].push({room,message,reciever})
+            }else{
+                newRecieve[username] =[{room,message,reciever}]
+            }
+            return newRecieve
+         })
         setMessage('')
     }
     const handleModal=()=>{
@@ -119,6 +140,7 @@ export default function Chatbot(){
                 headers:{Authorization:localStorage.getItem("token")}
             })
         console.log(response.data)
+        alert('successfully joined the group')
 
         }catch(err){console.log(err)}
     }
@@ -135,8 +157,18 @@ export default function Chatbot(){
         e.preventDefault()
         const username = data.user.name
         const group = socketId
-      
-        socket.emit('group-message',{username,group,message,isGroup,selectedGroupName})
+        const form ={username,group,message,isGroup,selectedGroupName}
+        socket.emit('group-message',form)
+        setAllGroups(prevState=>{
+            const newRecieve = {...prevState}
+            if( selectedGroupName in newRecieve){
+                newRecieve[selectedGroupName].chatHistory.push({...{message:form}})
+            }else{
+                newRecieve[selectedGroupName] = newRecieve.chatHistory.push({...{message:form}})
+            }
+            return newRecieve
+         })
+        
     
         setMessage('')
        
@@ -161,8 +193,8 @@ export default function Chatbot(){
         }
 
     }
-    console.log(allGroups)
-
+    console.log("chat single",recieve)
+    console.log("group chat",allGroups)
     return <div>
         <h2>Welcome to chatting application</h2>
         <Container>
@@ -191,12 +223,34 @@ export default function Chatbot(){
                 })}
             </Col>
             <Col className="col-md-10" style={{border:"0.5px solid grey" ,borderRadius:"8px"}}>
-            {
+            {/* {
 
-                !recieve[isGroup]? recieve[reciever]?.map((ele,i)=>{
-                    console.log(ele)
+                isGroup === false? recieve[reciever]?.map((ele,i)=>{
                 return <p key={i} style={{background:"grey",borderRadius:"8px",margin:"10px",padding:"10px"}}>{`${ele.message.username}:${ele.message.message}`}</p>
-            }) :Object.values(allGroups).find()
+            }) :Object.values(allGroups).filter(ele =>{
+                return ele.name == selectedGroupName
+            }).map((grp =>{
+                return grp.chatHistory.map(msg =>{
+                    return <p style={{background:"green",borderRadius:"8px",margin:"10px",padding:"10px"}}>{`${msg.message.username}: ${msg.message.message}`}</p>
+                })
+            }))
+
+           } */}
+           
+           {
+             isGroup === false ? (
+                recieve[sender]  && recieve[sender].filter((ele)=>{
+                    return ele.reciever == reciever
+                }).map((msg,i)=>{
+                    return <p key={i} style={{background:"grey",borderRadius:"8px",margin:"10px",padding:"10px"}}>{msg.message}</p>
+                })
+             ): Object.values(allGroups).filter(ele =>{
+                return ele.name == selectedGroupName
+            }).map(((grp,i)=>{
+                return grp.chatHistory.map(msg =>{
+                    return <p key={i} style={{background:"green",borderRadius:"8px",margin:"10px",padding:"10px"}}>{`${msg.message.username}: ${msg.message.message}`}</p>
+                })
+            }))
 
            }
            {
