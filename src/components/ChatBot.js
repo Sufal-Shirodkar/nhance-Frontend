@@ -3,24 +3,27 @@ import { Container,Form,Col,Button,Row, Card} from 'react-bootstrap'
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
 import axios from 'axios'
 import {io} from 'socket.io-client'
-import { useNavigate } from 'react-router-dom'
 import { useContext } from 'react'
 import { UserContext } from '../createContext/userContext'
 export default function Chatbot(){
+
     const [message,setMessage] = useState('')
-    const [recieve,setRecieve] = useState([])
+    const [recieve,setRecieve] = useState({})
     const [sender,setSender] = useState('')
     const [reciever,setReciever] = useState('')
     const [users,setUsers] = useState([])
-    const [allGroups,setAllGroups] = useState([])
+    const [allGroups,setAllGroups] = useState({})
     const [groupName,setGroupName] = useState('')
     const[ socketId,setSocketId] = useState('')
+    const [isGroup,setIsGroup] = useState(false)
+    const [selectedGroupName,setSelectedGroupName] = useState('')
     const {data}= useContext(UserContext)
     const [modal, setModal] = useState(false);
-    console.log(data)
     const socket = useMemo(()=>io("http://localhost:3330"),[])
-    const navigate = useNavigate()
+
     const toggle = () => setModal(!modal);
+
+    
     useEffect(()=>{
         (
             async()=>{
@@ -32,45 +35,78 @@ export default function Chatbot(){
                         Authorization:localStorage.getItem('token')
                     }})
                     console.log(response1.data)
-                    setAllGroups(response1.data)
-                    console.log(response.data)
+                    const result1= response1.data.reduce((acc,cv)=>{
+                        acc[cv.name] = {...cv,chatHistory:[]}
+                        return acc
+                    },{})
+                    setAllGroups(result1)
                     setUsers(response.data)
+                    const result = response.data.reduce((acc,cv)=>{
+                        acc[cv.name] = []
+                        return acc
+                    },{})
+                    setRecieve(result)
                 }catch(err){console.log(err)}
             }
         )();
+       
         socket.on('connect',()=>{
             socket.emit('join', { roomId: data.user._id});
         })
+        
         socket.on('welcome', (data) => {
             console.log(data, 'data');
         });
+
         socket.on('recieve_message',(data)=>{
-            console.log(data)
-            if ((sender == data.message.username && reciever == data.message.reciever) || (sender == data.message.reciever && reciever == data.message.username)) {
-                setRecieve((previousState) => [...previousState, data.message]);
-            }
-           
+             setRecieve(prevState=>{
+                const newRecieve = {...prevState}
+                if(!newRecieve[data.message.username]){
+                    newRecieve[data.message.username] =[data]
+                }else{
+                    newRecieve[data.message.username].push(data)
+                }
+                return newRecieve
+             })
+      
+        })
+        
+        socket.on('new-join',(data1)=>{
+            console.log(data1)
+        })
+        socket.on('recieve_group_message',(data)=>{
+          console.log(data)
+          setRecieve(prevState=>{
+                const newRecieve = {...prevState}
+                if(!newRecieve[data.message.selectedGroupName]){
+                    newRecieve[data.message.selectedGroupName] =[data]
+                }else{
+                    newRecieve[data.message.selectedGroupName].push(data)
+                }
+                return newRecieve
+             })
         })
         
         // return ()=>{
         //     socket.disconnect()
         // }
     },[])
-  
+
+
    const handleReciever=(id,name)=>{
+    setIsGroup(false)
     setSocketId(id)
     setReciever(name)
    }
+
+
     const handleUser=(e)=>{
         e.preventDefault()
         const username = data.user.name
         setSender(data.user.name)
         const room = socketId
-        
-        socket.emit('message1',{username,reciever,room,message})
-        setRecieve((previousState)=>[...previousState,{username:username,reciever:reciever,message:message}])
+        socket.emit('message1',{username,reciever,room,message,isGroup})
         setMessage('')
-        // navigate(`/userChat/${id}`)
     }
     const handleModal=()=>{
         toggle()
@@ -85,10 +121,26 @@ export default function Chatbot(){
         console.log(response.data)
 
         }catch(err){console.log(err)}
-        
-
     }
+
+    const handleGroupMessages=(id,members,name)=>{
+        console.log("groupId",id,"members",members,"name",name)
+        setSelectedGroupName(name)
+        setIsGroup(true)
+        const form ={groupId:id,username:data.user.name,groupName:name}
+        setSocketId(id)
+        socket.emit("join-group",form)
+    }
+    const handleGroupUsers=(e)=>{
+        e.preventDefault()
+        const username = data.user.name
+        const group = socketId
+      
+        socket.emit('group-message',{username,group,message,isGroup,selectedGroupName})
     
+        setMessage('')
+       
+    }
     const handleGroup=async(e)=>{
         e.preventDefault()
         const form ={
@@ -103,16 +155,18 @@ export default function Chatbot(){
                     Authorization:localStorage.getItem('token')
                 }
             })
-            console.log(response)
+            console.log(response)  // create one group 
         }catch(err){
             console.log(err)
         }
 
     }
+    console.log(allGroups)
 
     return <div>
         <h2>Welcome to chatting application</h2>
         <Container>
+            <h3>Hi!{data.user.name}</h3>
         <Button onClick={handleModal} style={{margin:"10px"}}>Add a Group</Button>
             <Row>
             <Col className="col-md-2">
@@ -121,11 +175,14 @@ export default function Chatbot(){
                     return<div key={i}><Card style={{width:"50%", height:"50px",textAlign:"center",margin:"10px"}} onClick={(e)=>{handleReciever(ele._id,ele.name)}}>{ele.name}</Card></div>
                 })}
 
-                 {allGroups.map((ele,i) =>{
+                 {Object.values(allGroups).map((ele,i) =>{
                     return <div key={i}>
-                        <Card style={{width:"50%", height:"50px",textAlign:"center",margin:"10px"}}>{`group ${ele.name}`}
+                        <Card style={{width:"50%", height:"50px",textAlign:"center",margin:"10px"}} 
+                              onClick={()=>{handleGroupMessages(ele._id,ele.members,ele.name)}}>{`group ${ele.name}`}
                         {
-                            !ele.members.includes(data?.user?._id) &&  <Button onClick={(e)=>{handleJoin(e,data.user,ele._id)}}>Join</Button>
+                            !ele.members.some(mem =>{
+                                return mem._id == data.user._id
+                            }) &&  <Button onClick={(e)=>{handleJoin(e,data.user,ele._id)}}>Join</Button>
                         }
                         </Card>
                        
@@ -135,15 +192,36 @@ export default function Chatbot(){
             </Col>
             <Col className="col-md-10" style={{border:"0.5px solid grey" ,borderRadius:"8px"}}>
             {
-            recieve.map((ele,i) =>{
-                return <p key={i} style={{background:"grey",borderRadius:"8px",margin:"10px",padding:"10px"}}>{`${ele.username}:${ele.message}`}</p>
-            })
+
+                !recieve[isGroup]? recieve[reciever]?.map((ele,i)=>{
+                    console.log(ele)
+                return <p key={i} style={{background:"grey",borderRadius:"8px",margin:"10px",padding:"10px"}}>{`${ele.message.username}:${ele.message.message}`}</p>
+            }) :Object.values(allGroups).find()
 
            }
+           {
+            isGroup ?  <Form onSubmit={handleGroupUsers}>
+            <Form.Group as={Row} controlId="formDescription">
+            <Form.Label column sm={2}>
+               Group message
+            </Form.Label>
+            <Col sm={10}>
+              <Form.Control
+                as="textarea"
+                value={message}
+                placeholder="message"
+                onChange={(e) => setMessage(e.target.value)}
+              />
+            </Col>
+          </Form.Group>
+          <Button variant="primary" type="submit">
+            Send
+          </Button>
+            </Form> : 
             <Form onSubmit={handleUser}>
             <Form.Group as={Row} controlId="formDescription">
             <Form.Label column sm={2}>
-             message
+                message
             </Form.Label>
             <Col sm={10}>
               <Form.Control
@@ -158,6 +236,7 @@ export default function Chatbot(){
             Send
           </Button>
             </Form>
+             }
             </Col>
             </Row>
    
