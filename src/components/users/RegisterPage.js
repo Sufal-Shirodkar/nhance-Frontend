@@ -46,11 +46,11 @@ export default function Register(){
     }
     return (
         <div>
-            <Container>
-                <Card>
+            <Container className="d-flex justify-content-center min-vh-100">
+                <Card style={{ width: '20rem' }} className='m-auto p-3'>
                     <Card.Body>
-                        <Card.Title>Register Page</Card.Title>
-                        <Form onSubmit={handleSubmit}>
+                        <Card.Title style={{textAlign:"center"}}>Register Page</Card.Title>
+                        <Form onSubmit={handleSubmit} className='form-control'>
                             {
                                 serverErrors.map((ele,i)=>{
                                     return <>
@@ -58,19 +58,20 @@ export default function Register(){
                                     </>
                                 })
                             }
-                        <input type="text" value={name} onChange={e =>{setName(e.target.value)}} placeholder="enter name"/>
+                        <input className="form-control" type="text" value={name} onChange={e =>{setName(e.target.value)}} placeholder="enter name"/>
                         {Object.keys(formErrors).length >0 && <span style={{color:'red'}}>{formErrors.name}</span>}<br/>
-                        <input type="number" value={mobile} onChange={e =>{setMobile(e.target.value)}} placeholder="enter mobile"/>
+                        <input className="form-control" type="number" value={mobile} onChange={e =>{setMobile(e.target.value)}} placeholder="enter mobile"/>
                         {Object.keys(formErrors).length >0 && <span style={{color:'red'}}>{formErrors.mobile}</span>}<br/>
-                        <input type="password" value={password} onChange={e =>{setPassword(e.target.value)}} placeholder="enter password"/>
+                        <input className="form-control" type="password" value={password} onChange={e =>{setPassword(e.target.value)}} placeholder="enter password"/>
                         {Object.keys(formErrors).length >0 && <span style={{color:'red'}}>{formErrors.password}</span>}<br/>
-                       <Button type="submit" >Submit</Button>
+                       <Button className="form-control" type="submit" >Submit</Button>
                         </Form>
                         
                     </Card.Body>
                 </Card> 
-                <span onClick={()=>{navigate('/login')}}>If Already Registered? click to Login</span>
             </Container>
+            <span onClick={()=>{navigate('/login')}}
+             style={{display:"flex",justifyContent:"center",color:"blue",position:"relative",bottom:"80px"}}>If Already Registered? click to Login</span>
            
         </div>
     )
